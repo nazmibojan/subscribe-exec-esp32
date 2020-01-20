@@ -5,12 +5,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <WiFi.h>
+#include <ESP8266WiFi.h>
 #include "time.h"
 #include <PubSubClient.h>
-#include <ArduinoJson.h>
-
-//#define SERIAL_EVENT
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 
 #define RXD2    16
 #define TXD2    17
@@ -21,37 +20,35 @@ const char* password  = "4xiatadigitallabs18";
 const char* ntp_server = "pool.ntp.org";
 const char* mqtt_server = "mqtt.flexiot.xl.co.id";
 const int mqtt_port = 1883;
-const char* mqtt_user = "generic_brand_2000-esp32-v2_3780";
-const char* mqtt_pwd = "1579146168_3780";
-String device_serial = "2095253161010456";
-const char* event_topic = "generic_brand_2000/esp32/v2/common";
-String sub_topic_string = "+/" + device_serial + "/generic_brand_2000/esp32/v2/sub";
+const char* mqtt_user = "generic_brand_2003-esp32_test-v2_3792";
+const char* mqtt_pwd = "1579159694_3792";
+String device_serial = "1595649038140789";
+const char* event_topic = "generic_brand_2003/esp32_test/v2/common";
+String sub_topic_string = "+/" + device_serial + "/generic_brand_2003/esp32_test/v2/sub";
 
-struct tm timeinfo;
+const long utcOffsetInSeconds = 0;
+char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+
+char msg[300];
 unsigned long last_request = 0;
-const long gmt_offset_sec = 25200;
-const int daylight_offset_sec = 0;
 double relay_status = 0;
 String request = "relay on\r\n";
 String relay_string = "";
+unsigned long epoch_time = 0;
 
 String inputString = "";
 bool stringComplete = false;
 
 WiFiClient ESPClient;
 PubSubClient client(ESPClient);
-char msg[300];
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, ntp_server, utcOffsetInSeconds);
 
 void setup()
 {
   Serial.begin(115200);
-  Serial2.begin(9600, SERIAL_8N1, RXD2, TXD2);
 
   setup_wifi();
-
-  //init and get the time
-  configTime(gmt_offset_sec, daylight_offset_sec, ntp_server);
-  printLocalTime();
 
   // Connect to MQTT Server
   client.setServer(mqtt_server, mqtt_port);
@@ -68,6 +65,7 @@ void setup()
     }
   }
 
+  timeClient.begin();
   client.setCallback(callback);
 }
 
@@ -84,13 +82,13 @@ void loop()
   if (millis() - last_request > PERIOD) {
     last_request = millis();
 
-    Serial2.write("get_status");
-    Serial2.write('\r');
-    Serial2.write('\n');
+    Serial.write("get_status");
+    Serial.write('\r');
+    Serial.write('\n');
   }
   
-  while (Serial2.available()) {
-    char inChar = (char)Serial2.read();
+  while (Serial.available()) {
+    char inChar = (char)Serial.read();
     relay_string += inChar;
     if (inChar == '\n') {
       stringComplete = true;
@@ -142,11 +140,17 @@ void setup_wifi() {
 
 void printLocalTime()
 {
-  if (!getLocalTime(&timeinfo)) {
-    Serial.println("Failed to obtain time");
-    return;
-  }
-  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+  timeClient.update();
+
+  Serial.print(daysOfTheWeek[timeClient.getDay()]);
+  Serial.print(", ");
+  Serial.print(timeClient.getHours());
+  Serial.print(":");
+  Serial.print(timeClient.getMinutes());
+  Serial.print(":");
+  Serial.println(timeClient.getSeconds());
+
+  epoch_time = timeClient.getEpochTime();
 }
 
 //receiving a message
@@ -164,11 +168,12 @@ void reconnect() {
   // Loop until we're reconnected
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
-//    // Create a random client ID
-//    String clientId = "ESP32Client-";
-//    clientId += String(random(0xffff), HEX);
+    char id[32] = "";
+    String clientId = "ESP32Client-";
+    clientId += String(random(0xffff), HEX);
+    clientId.toCharArray(id, sizeof(id));
     // Attempt to connect
-    if (client.connect("ESP32Client-01", mqtt_user, mqtt_pwd)) {
+    if (client.connect(id, mqtt_user, mqtt_pwd)) {
       Serial.println("connected");
       //subscribe to the topic
       const char* sub_topic = sub_topic_string.c_str();
@@ -193,39 +198,20 @@ void publish_message(const char* message){
 void send_event(){
 
   char msgtosend[1024] = {0};
-  char day[3], month[3], year[5], hour[3], minute[3], second[3];  
   char relay[2];
+  char epoch_sec[16];
+  double relay_status = 1;
 
-  String sday = String(timeinfo.tm_mday);
-  String smonth = String(timeinfo.tm_mon + 1);    /**< months since January - [ 0 to 11 ] */
-  String syear = String(timeinfo.tm_year + 1900); /**< years since 1900 */
-  String shour = String(timeinfo.tm_hour);
-  String sminute = String(timeinfo.tm_min);
-  String ssecond = String(timeinfo.tm_sec);
-  sday.toCharArray(day, sizeof(day));
-  smonth.toCharArray(month, sizeof(month));
-  syear.toCharArray(year, sizeof(year));
-  shour.toCharArray(hour, sizeof(hour));
-  sminute.toCharArray(minute, sizeof(minute));
-  ssecond.toCharArray(second, sizeof(second));
+  String sepoch = String(epoch_time);
+  sepoch.toCharArray(epoch_sec, sizeof(epoch_sec));
   dtostrf(relay_status, 1, 0, relay);
 
   strcat(msgtosend, "{\"eventName\":\"relayStatus\",\"status\":\"none\"");
-  strcat(msgtosend, ",\"day\":");
-  strcat(msgtosend, day);
-  strcat(msgtosend, ",\"month\":");
-  strcat(msgtosend, month);
-  strcat(msgtosend, ",\"year\":");
-  strcat(msgtosend, year);
-  strcat(msgtosend, ",\"hour\":");
-  strcat(msgtosend, hour);
-  strcat(msgtosend, ",\"minute\":");
-  strcat(msgtosend, minute);
-  strcat(msgtosend, ",\"second\":");
-  strcat(msgtosend, second);
   strcat(msgtosend, ",\"relay\":");
   strcat(msgtosend, relay);
-  strcat(msgtosend, ",\"mac\":\"2095253161010456\"}");
+  strcat(msgtosend, ",\"time\":");
+  strcat(msgtosend, epoch_sec);
+  strcat(msgtosend, ",\"mac\":\"1595649038140789\"}");
   publish_message(msgtosend);  //send the event to backend
   memset(msgtosend, 0, sizeof msgtosend);
 }

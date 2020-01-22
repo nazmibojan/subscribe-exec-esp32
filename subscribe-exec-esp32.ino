@@ -19,9 +19,9 @@ const char* ssid      = "CONNEXT-AXIATA";
 const char* password  = "4xiatadigitallabs18";
 const char* ntp_server = "pool.ntp.org";
 const char* mqtt_server = "hairdresser.cloudmqtt.com";
-const char* mqtt_user = "wcsuepgk";
-const char* mqtt_pwd = "UnNCUdSddsQb";
-const int mqtt_port = 18541;
+const char* mqtt_user = "nglettrq";
+const char* mqtt_pwd = "RVPcR2AQJEV1";
+const int mqtt_port = 18848;
 String device_id = "esp8266";
 String pub_topic = String(device_id + "/relay_status");
 String sub_topic = String(device_id + "/relay_control");
@@ -68,9 +68,9 @@ void loop()
   if (millis() - last_request > PERIOD) {
     last_request = millis();
 
-    Serial.write("get_status");
-    Serial.write('\r');
-    Serial.write('\n');
+//    Serial.write("get_status");
+//    Serial.write('\r');
+//    Serial.write('\n');
   }
   
   while (Serial.available()) {
@@ -160,6 +160,9 @@ void reconnect() {
       Serial.println("connected");
       //subscribe to the topic
       client.subscribe(sub_topic.c_str());
+      // Test publish
+      printLocalTime();
+      send_event();
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());

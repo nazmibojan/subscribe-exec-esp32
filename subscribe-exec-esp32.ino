@@ -28,9 +28,9 @@ String sub_topic = String(device_id + "/relay_control");
 String device_serial = "2286179853734245";
 
 const long utcOffsetInSeconds = 0;
+double relay_status = 0;
 char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 unsigned long epoch_time = 0;
-double relay_status = 0;
 unsigned long last_request = 0;
 String request = "relay on\r\n";
 String relay_string = "";
@@ -68,9 +68,9 @@ void loop()
   if (millis() - last_request > PERIOD) {
     last_request = millis();
 
-//    Serial.write("get_status");
-//    Serial.write('\r');
-//    Serial.write('\n');
+    Serial.write("get_status");
+    Serial.write('\r');
+    Serial.write('\n');
   }
   
   while (Serial.available()) {
@@ -204,18 +204,14 @@ void send_event(){
 //====================================================================================================================================================================
 //==================================================================================================================================================================== 
 void do_actions(const char* message){
-  //Create this function according to your actions. you will receive a message something like this
-  /* Eg : {
-        "action":"actionOne",
-        "param":{
-          "ac1Value1":"1110" ,
-          "parentMac":"6655591876092787",
-          "ac1Value4":"port:03",
-          "ac1Value5":"on",
-          "mac":"6655591876092787",
-          "ac1Value2":"2220",
-          "ac1Value3":"567776"
-        }
-      } */
   Serial.println(message);
+  // Check if received command whether 'relay_on'or 'relay_off
+  if (strcmp(message, "relay_on") == 0) {
+    //Send command to Arduino to turn on relay
+  } else if (strcmp(message, "relay_off") == 0) {
+    //Send command to Arduino to turn off relay
+  } else {
+    Serial.println("Command is not recognized");
+  }
+  
 }

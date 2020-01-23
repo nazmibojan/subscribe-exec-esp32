@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <ESP8266WiFi.h>
+#include <WiFi.h>
 #include "time.h"
 #include <PubSubClient.h>
 #include <NTPClient.h>
@@ -22,7 +22,7 @@ const char* mqtt_server = "hairdresser.cloudmqtt.com";
 const char* mqtt_user = "nglettrq";
 const char* mqtt_pwd = "RVPcR2AQJEV1";
 const int mqtt_port = 18848;
-String device_id = "esp8266";
+String device_id = "esp32";
 String pub_topic = String(device_id + "/relay_status");
 String sub_topic = String(device_id + "/relay_control");
 String device_serial = "2286179853734245";
@@ -216,5 +216,4 @@ void do_actions(const char* message){
   } else {
     Serial.println("Command is not recognized");
   }
-  
 }
